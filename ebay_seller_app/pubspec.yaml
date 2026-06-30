@@ -1,0 +1,41 @@
+name: ebay_seller_app
+description: Lightweight eBay Seller Listings Viewer
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.12.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # HTTP & Networking
+  dio: ^5.4.0
+  connectivity_plus: ^7.2.0
+
+  # State Management
+  flutter_riverpod: ^3.3.2
+
+  # Local Cache / Persistence
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+
+  # Images
+  cached_network_image: ^3.3.1
+
+  # Utilities
+  intl: ^0.20.3
+  url_launcher: ^6.2.5
+  share_plus: ^13.2.0
+  flutter_cache_manager: ^3.3.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/icons/
+    - assets/images/
