@@ -55,7 +55,7 @@ class EbayListing extends HiveObject {
     this.shippingCost,
   });
 
-  // ── Computed helpers ─────────────────────────────────────────────────────
+  // ── Computed helpers ──────────────────────────────────────────────────────
 
   bool get isAuction => listingType == 'Auction';
 
@@ -70,100 +70,93 @@ class EbayListing extends HiveObject {
 
   bool get endingSoon => timeRemaining.inHours < 2 && !isEnded;
 
-  String get shortUrl {
-    // eBay short URL format
-    return 'https://ebay.com/itm/$itemId';
-  }
+  String get shortUrl => 'https://ebay.com/itm/$itemId';
 
-  // ── Factories ────────────────────────────────────────────────────────────
+  // ── Factory: Browse API JSON ──────────────────────────────────────────────
 
-  factory EbayListing.fromFindingApiJson(Map<String, dynamic> json) {
-    String _s(dynamic v) => (v is List ? v.first : v)?.toString() ?? '';
-    double _d(dynamic v) =>
-        double.tryParse((v is List ? v.first : v)?.toString() ?? '0') ?? 0;
+  factory EbayListing.fromBrowseApiJson(Map<String, dynamic> json) {
+    // Price
+    final priceMap = json['price'] as Map<String, dynamic>? ?? {};
+    final price = double.tryParse(priceMap['value']?.toString() ?? '0') ?? 0.0;
+    final currency = priceMap['currency']?.toString() ?? 'USD';
 
-    final sellingStatus =
-        (json['sellingStatus'] is List
-            ? json['sellingStatus'].first
-            : json['sellingStatus']) ??
-            {};
-    final listingInfo =
-        (json['listingInfo'] is List
-            ? json['listingInfo'].first
-            : json['listingInfo']) ??
-            {};
-    final pictureDetails =
-        (json['pictureDetails'] is List
-            ? json['pictureDetails'].first
-            : json['pictureDetails']) ??
-            {};
-    final shippingInfo =
-        (json['shippingInfo'] is List
-            ? json['shippingInfo'].first
-            : json['shippingInfo']) ??
-            {};
+    // Images — Browse API returns thumbnailImages and additionalImages
+    final images = <String>[];
+    final thumbnail = json['thumbnailImages'] as List?;
+    final additional = json['additionalImages'] as List?;
 
-    final currentPrice =
-        (sellingStatus['currentPrice'] is List
-            ? sellingStatus['currentPrice'].first
-            : sellingStatus['currentPrice']) ??
-            {};
-    final endTimeStr = _s(listingInfo['endTime']);
-
-    // Collect all image URLs
-    List<String> images = [];
-    final pUrls = pictureDetails['pictureURL'];
-    if (pUrls is List) {
-      images = pUrls.map((e) => e.toString()).toList();
-    } else if (pUrls is String) {
-      images = [pUrls];
+    if (thumbnail != null) {
+      for (final img in thumbnail) {
+        final url = img['imageUrl']?.toString();
+        if (url != null && url.isNotEmpty) images.add(url);
+      }
     }
-    // Fallback gallery
-    final galleryUrl = _s(json['galleryURL']);
-    if (galleryUrl.isNotEmpty && !images.contains(galleryUrl)) {
-      images.insert(0, galleryUrl);
+    if (additional != null) {
+      for (final img in additional) {
+        final url = img['imageUrl']?.toString();
+        if (url != null && url.isNotEmpty && !images.contains(url)) {
+          images.add(url);
+        }
+      }
+    }
+    // Fallback to image field
+    if (images.isEmpty) {
+      final fallback = (json['image'] as Map<String, dynamic>?)?['imageUrl'];
+      if (fallback != null) images.add(fallback.toString());
     }
 
-    // Shipping cost
-    String? shipping;
-    final shipCost =
-        (shippingInfo['shippingServiceCost'] is List
-            ? shippingInfo['shippingServiceCost'].first
-            : shippingInfo['shippingServiceCost']);
-    if (shipCost != null) {
-      final cost = double.tryParse(shipCost['__value__']?.toString() ?? '');
-      shipping = cost == 0 ? 'Free' : '\$${cost?.toStringAsFixed(2)}';
+    // Auction end time
+    DateTime? endTime;
+    final endTimeStr = json['itemEndDate']?.toString();
+    if (endTimeStr != null && endTimeStr.isNotEmpty) {
+      endTime = DateTime.tryParse(endTimeStr);
     }
+
+    // Listing type
+    final buyingOptions = (json['buyingOptions'] as List?) ?? [];
+    String listingType = 'FixedPrice';
+    if (buyingOptions.contains('AUCTION')) {
+      listingType = 'Auction';
+    } else if (buyingOptions.contains('BEST_OFFER')) {
+      listingType = 'BestOffer';
+    }
+
+    // Bids
+    final bidCount = json['bidCount'] as int?;
+
+    // Shipping
+    String? shippingCost;
+    final shippingOptions = json['shippingOptions'] as List?;
+    if (shippingOptions != null && shippingOptions.isNotEmpty) {
+      final firstShip = shippingOptions.first as Map<String, dynamic>;
+      final shipCostMap = firstShip['shippingCost'] as Map<String, dynamic>?;
+      if (shipCostMap != null) {
+        final cost = double.tryParse(shipCostMap['value']?.toString() ?? '');
+        shippingCost = cost == 0 ? 'Free' : '\$${cost?.toStringAsFixed(2)}';
+      }
+    }
+
+    // Condition
+    final condition = json['condition']?.toString();
+
+    // URL
+    final itemUrl =
+        json['itemWebUrl']?.toString() ??
+        'https://ebay.com/itm/${json['itemId']}';
 
     return EbayListing(
-      itemId: _s(json['itemId']),
-      title: _s(json['title']),
-      price: _d(currentPrice['__value__']),
-      currency: currentPrice['@currencyId']?.toString() ?? 'USD',
+      itemId: json['itemId']?.toString() ?? '',
+      title: json['title']?.toString() ?? '',
+      price: price,
+      currency: currency,
       imageUrls: images,
-      auctionEndTime:
-          endTimeStr.isNotEmpty ? DateTime.tryParse(endTimeStr) : null,
-      listingUrl:
-          _s(json['viewItemURL']).isNotEmpty
-              ? _s(json['viewItemURL'])
-              : 'https://ebay.com/itm/${_s(json['itemId'])}',
-      listingType: _s(listingInfo['listingType']),
-      bidCount: int.tryParse(_s(sellingStatus['bidCount'])),
+      auctionEndTime: endTime,
+      listingUrl: itemUrl,
+      listingType: listingType,
+      bidCount: bidCount,
       fetchedAt: DateTime.now(),
-      condition: _s(
-        (json['condition'] is List
-                ? json['condition'].first
-                : json['condition'])
-            ?['conditionDisplayName'],
-      ).isNotEmpty
-          ? _s(
-              (json['condition'] is List
-                      ? json['condition'].first
-                      : json['condition'])
-                  ?['conditionDisplayName'],
-            )
-          : null,
-      shippingCost: shipping,
+      condition: condition,
+      shippingCost: shippingCost,
     );
   }
 
@@ -185,15 +178,15 @@ class EbayListing extends HiveObject {
   }
 }
 
-// ── Sort enum ────────────────────────────────────────────────────────────────
+// ── Sort enum ─────────────────────────────────────────────────────────────────
 
 enum ListingSort {
-  endingSoon('Ending Soon', 'EndTimeSoonest'),
-  endingLast('Ending Last', 'EndTimeFarthest'),
-  priceAsc('Price: Low to High', 'PricePlusShippingLowest'),
-  priceDesc('Price: High to Low', 'PricePlusShippingHighest');
+  endingSoon('Ending Soon', 'endTimeSoonest'),
+  endingLast('Ending Last', 'endTimeFarthest'),
+  priceAsc('Price: Low to High', 'price'),
+  priceDesc('Price: High to Low', '-price');
 
   final String label;
-  final String apiValue;
-  const ListingSort(this.label, this.apiValue);
+  final String browseApiValue;
+  const ListingSort(this.label, this.browseApiValue);
 }

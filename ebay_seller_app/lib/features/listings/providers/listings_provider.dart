@@ -7,7 +7,10 @@ import '../../../core/utils/app_config.dart';
 // ── API Client provider ───────────────────────────────────────────────────────
 
 final ebayClientProvider = Provider<EbayApiClient>((ref) {
-  return EbayApiClient(appId: AppConfig.ebayAppId);
+  return EbayApiClient(
+    clientId: AppConfig.ebayClientId,
+    clientSecret: AppConfig.ebayClientSecret,
+  );
 });
 
 // ── Sort provider ─────────────────────────────────────────────────────────────
@@ -60,9 +63,6 @@ class ListingsState {
       isOffline: isOffline ?? this.isOffline,
     );
   }
-
-  /// Sort listings locally (for instant UI response without API call)
-  List<EbayListing> get sortedListings => listings; // already sorted by API
 }
 
 // ── Listings notifier ─────────────────────────────────────────────────────────
@@ -113,13 +113,11 @@ class ListingsNotifier extends Notifier<ListingsState> {
     await _fetchFromApi(sort: sort, isRefresh: true);
   }
 
-  /// Change sort order (locally if data is loaded, then refetch).
+  /// Change sort order (locally instant, then refetch).
   Future<void> changeSort(ListingSort sort) async {
     if (state.listings.isNotEmpty) {
-      // Apply local sort instantly for snappy UX
       state = state.copyWith(listings: _sortLocally(state.listings, sort));
     }
-    // Refetch to get accurate server-side sorted results
     await refresh(sort: sort);
   }
 
@@ -150,7 +148,7 @@ class ListingsNotifier extends Notifier<ListingsState> {
       state = state.copyWith(
         isLoading: false,
         isRefreshing: false,
-        error: isConnErr ? null : e.message, // don't show error if just offline
+        error: isConnErr ? null : e.message,
         isOffline: isConnErr,
       );
     } catch (e) {

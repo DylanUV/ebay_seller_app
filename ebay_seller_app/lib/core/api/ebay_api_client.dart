@@ -1,106 +1,153 @@
+import 'dart:convert';
 import 'package:dio/dio.dart';
 import '../models/listing.dart';
 
-/// eBay Finding API client.
-/// Docs: https://developer.ebay.com/devzone/finding/callref/findItemsIneBayStores.html
+/// eBay Browse API client with OAuth Client Credentials.
+/// Docs: https://developer.ebay.com/api-docs/buy/browse/overview.html
 class EbayApiClient {
-  static const _baseUrl =
-      'https://svcs.ebay.com/services/search/FindingService/v1';
-  static const _version = '1.0.0';
+  static const _authUrl = 'https://api.ebay.com/identity/v1/oauth2/token';
+  static const _browseUrl = 'https://api.ebay.com/buy/browse/v1';
 
-  final Dio _dio;
-  final String appId; // Your eBay App ID (Client ID)
+  final String clientId;
+  final String clientSecret;
 
-  EbayApiClient({required this.appId})
-    : _dio = Dio(
-        BaseOptions(
-          baseUrl: _baseUrl,
-          connectTimeout: const Duration(seconds: 10),
-          receiveTimeout: const Duration(seconds: 15),
-          headers: {
-            'X-EBAY-SOA-SECURITY-APPNAME': appId,
-            'X-EBAY-SOA-REQUEST-DATA-FORMAT': 'JSON',
-            'X-EBAY-SOA-RESPONSE-DATA-FORMAT': 'JSON',
-            'X-EBAY-SOA-SERVICE-VERSION': _version,
-          },
-        ),
-      ) {
-    _dio.interceptors.add(
-      LogInterceptor(
-        requestBody: false,
-        responseBody: false,
-        logPrint: (o) => debugPrint('[eBay API] $o'),
+  late final Dio _dio;
+  late final Dio _authDio;
+
+  String? _accessToken;
+  DateTime? _tokenExpiry;
+
+  EbayApiClient({required this.clientId, required this.clientSecret}) {
+    _dio = Dio(
+      BaseOptions(
+        baseUrl: _browseUrl,
+        connectTimeout: const Duration(seconds: 10),
+        receiveTimeout: const Duration(seconds: 15),
+        headers: {
+          'Content-Type': 'application/json',
+          'X-EBAY-C-MARKETPLACE-ID': 'EBAY_US',
+        },
+      ),
+    );
+
+    _authDio = Dio(
+      BaseOptions(
+        connectTimeout: const Duration(seconds: 10),
+        receiveTimeout: const Duration(seconds: 10),
       ),
     );
   }
 
+  // ── OAuth: Client Credentials flow ────────────────────────────────────────
+
+  /// Returns a valid access token, refreshing if expired.
+  Future<String> _getToken() async {
+    if (_accessToken != null &&
+        _tokenExpiry != null &&
+        DateTime.now().isBefore(_tokenExpiry!)) {
+      return _accessToken!;
+    }
+
+    final credentials = base64Encode(utf8.encode('$clientId:$clientSecret'));
+
+    try {
+      final response = await _authDio.post(
+        _authUrl,
+        data:
+            'grant_type=client_credentials&scope=https%3A%2F%2Fapi.ebay.com%2Foauth%2Fapi_scope',
+        options: Options(
+          headers: {
+            'Authorization': 'Basic $credentials',
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+        ),
+      );
+
+      _accessToken = response.data['access_token'];
+      final expiresIn = response.data['expires_in'] as int? ?? 7200;
+      // Subtract 60s buffer so we refresh before actual expiry
+      _tokenExpiry = DateTime.now().add(Duration(seconds: expiresIn - 60));
+
+      return _accessToken!;
+    } on DioException catch (e) {
+      throw EbayApiException(
+        'Auth failed: ${e.response?.data?['error_description'] ?? e.message}',
+      );
+    }
+  }
+
+  // ── Browse API: search by seller ─────────────────────────────────────────
+
   /// Fetch all active listings for a seller username.
-  /// [sort] uses eBay's sortOrder values.
-  /// [page] is 1-indexed, max 100 items per page.
-  Future<EbaySearchResult> getSellerListings({
+  Future<List<EbayListing>> getAllSellerListings({
     required String sellerUsername,
     ListingSort sort = ListingSort.endingSoon,
-    int page = 1,
-    int itemsPerPage = 50,
+  }) async {
+    final token = await _getToken();
+    final allListings = <EbayListing>[];
+    int offset = 0;
+    const limit = 200; // Browse API max per page
+    int? total;
+
+    do {
+      final result = await _fetchPage(
+        token: token,
+        sellerUsername: sellerUsername,
+        sort: sort,
+        limit: limit,
+        offset: offset,
+      );
+
+      allListings.addAll(result.listings);
+      total ??= result.total;
+      offset += limit;
+    } while (total != null && offset < total && allListings.length < total);
+
+    return allListings;
+  }
+
+  Future<_BrowsePageResult> _fetchPage({
+    required String token,
+    required String sellerUsername,
+    required ListingSort sort,
+    required int limit,
+    required int offset,
   }) async {
     try {
       final response = await _dio.get(
-        '',
+        '/item_summary/search',
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
         queryParameters: {
-          'OPERATION-NAME': 'findItemsIneBayStores',
-          'storeName': sellerUsername,
-          'sortOrder': sort.apiValue,
-          'paginationInput.pageNumber': page,
-          'paginationInput.entriesPerPage': itemsPerPage,
-          // Request all image URLs
-          'outputSelector': [
-            'PictureURLLarge',
-            'PictureURLSuperSize',
-            'SellerInfo',
-            'ShippingInfo',
-          ],
+          'q': '*',
+          'filter': 'sellers:{$sellerUsername}',
+          'sort': sort.browseApiValue,
+          'limit': limit,
+          'offset': offset,
+          'fieldgroups': 'EXTENDED',
         },
       );
 
-      final data = response.data;
-      final searchResp = data['findItemsIneBayStoresResponse']?[0];
+      final data = response.data as Map<String, dynamic>;
+      final total = data['total'] as int? ?? 0;
+      final items = (data['itemSummaries'] as List?) ?? [];
 
-      if (searchResp == null) {
-        throw EbayApiException('Empty response from eBay API');
-      }
-
-      final ack = searchResp['ack']?[0] ?? 'Failure';
-      if (ack != 'Success' && ack != 'Warning') {
-        final errMsg =
-            searchResp['errorMessage']?[0]?['error']?[0]?['message']?[0] ??
-            'Unknown API error';
-        throw EbayApiException(errMsg);
-      }
-
-      final paginationOutput = searchResp['paginationOutput']?[0] ?? {};
-      final totalItems =
-          int.tryParse(
-            paginationOutput['totalEntries']?[0]?.toString() ?? '0',
-          ) ??
-          0;
-      final totalPages =
-          int.tryParse(paginationOutput['totalPages']?[0]?.toString() ?? '1') ??
-          1;
-
-      final rawItems = (searchResp['searchResult']?[0]?['item'] as List?) ?? [];
-
-      final listings = rawItems
-          .map((item) => EbayListing.fromFindingApiJson(item))
-          .where((l) => !l.isEnded) // filter out expired
+      final listings = items
+          .map((item) => EbayListing.fromBrowseApiJson(item))
+          .where((l) => !l.isEnded)
           .toList();
 
-      return EbaySearchResult(
-        listings: listings,
-        totalItems: totalItems,
-        totalPages: totalPages,
-        currentPage: page,
-      );
+      return _BrowsePageResult(listings: listings, total: total);
     } on DioException catch (e) {
+      if (e.response?.statusCode == 401) {
+        // Token expired mid-session — clear and let caller retry
+        _accessToken = null;
+        throw EbayApiException('Token expired, please try again.');
+      }
+      if (e.response?.statusCode == 503) {
+        throw const EbayApiException(
+          'eBay is temporarily unavailable. Please try again in a moment.',
+        );
+      }
       if (e.type == DioExceptionType.connectionTimeout ||
           e.type == DioExceptionType.receiveTimeout) {
         throw EbayApiException('Connection timed out. Check your internet.');
@@ -108,79 +155,20 @@ class EbayApiClient {
       if (e.type == DioExceptionType.connectionError) {
         throw EbayApiException('No internet connection.');
       }
-      if (e.response?.statusCode == 503) {
-        throw const EbayApiException(
-          'eBay is temporarily unavailable. Please try again in a moment.',
-        );
-      }
       throw EbayApiException('Network error: ${e.message}');
     } catch (e) {
       if (e is EbayApiException) rethrow;
       throw EbayApiException('Unexpected error: $e');
     }
   }
-
-  /// Fetch ALL pages for a seller (used on first load / full refresh).
-  Future<List<EbayListing>> getAllSellerListings({
-    required String sellerUsername,
-    ListingSort sort = ListingSort.endingSoon,
-  }) async {
-    final firstPage = await getSellerListings(
-      sellerUsername: sellerUsername,
-      sort: sort,
-      page: 1,
-    );
-
-    if (firstPage.totalPages <= 1) return firstPage.listings;
-
-    // Fetch remaining pages concurrently (max 3 concurrent to be polite)
-    final allListings = <EbayListing>[...firstPage.listings];
-    const batchSize = 3;
-
-    for (
-      int batch = 0;
-      batch < ((firstPage.totalPages - 1) / batchSize).ceil();
-      batch++
-    ) {
-      final startPage = 2 + batch * batchSize;
-      final endPage = (startPage + batchSize - 1).clamp(
-        2,
-        firstPage.totalPages,
-      );
-
-      final futures = List.generate(
-        endPage - startPage + 1,
-        (i) => getSellerListings(
-          sellerUsername: sellerUsername,
-          sort: sort,
-          page: startPage + i,
-        ),
-      );
-
-      final results = await Future.wait(futures);
-      for (final result in results) {
-        allListings.addAll(result.listings);
-      }
-    }
-
-    return allListings;
-  }
 }
 
 // ── Supporting types ──────────────────────────────────────────────────────────
 
-class EbaySearchResult {
+class _BrowsePageResult {
   final List<EbayListing> listings;
-  final int totalItems;
-  final int totalPages;
-  final int currentPage;
-
-  const EbaySearchResult({
-    required this.listings,
-    required this.totalItems,
-    required this.totalPages,
-    required this.currentPage,
-  });
+  final int total;
+  const _BrowsePageResult({required this.listings, required this.total});
 }
 
 class EbayApiException implements Exception {
@@ -189,9 +177,4 @@ class EbayApiException implements Exception {
 
   @override
   String toString() => 'EbayApiException: $message';
-}
-
-void debugPrint(String msg) {
-  // ignore: avoid_print
-  print(msg);
 }

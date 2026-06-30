@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/cache/cache_service.dart';
 import 'features/listings/screens/listings_screen.dart';
@@ -8,14 +9,17 @@ import 'shared/theme/app_theme.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Force portrait mode for optimal table layout on mobile
+  // Load environment variables
+  await dotenv.load(fileName: '.env');
+
+  // Force portrait + landscape support
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.landscapeLeft,
     DeviceOrientation.landscapeRight,
   ]);
 
-  // Status bar style (transparent + light icons on dark bg)
+  // Status bar style
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
@@ -28,10 +32,7 @@ Future<void> main() async {
   // Initialize local cache
   await CacheService.init();
 
-  runApp(
-    // ProviderScope is the root of Riverpod state
-    const ProviderScope(child: EbaySellerApp()),
-  );
+  runApp(const ProviderScope(child: EbaySellerApp()));
 }
 
 class EbaySellerApp extends StatelessWidget {

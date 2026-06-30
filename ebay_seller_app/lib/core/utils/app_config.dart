@@ -1,18 +1,21 @@
-/// Central app configuration.
-/// Replace the placeholders before running.
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
+/// Central app configuration — reads from .env file.
+/// Never hardcode credentials here.
 class AppConfig {
   // ── eBay API credentials ──────────────────────────────────────────────────
-  // Get yours at: https://developer.ebay.com/my/keys
-  static const String ebayAppId = 'DylanEle-Listinga-SBX-c0acd91f7-b0582c10';
+  static String get ebayClientId => dotenv.env['EBAY_CLIENT_ID'] ?? '';
+
+  static String get ebayClientSecret => dotenv.env['EBAY_CLIENT_SECRET'] ?? '';
 
   // ── Seller to track ───────────────────────────────────────────────────────
-  // The eBay username/storename of the seller whose listings you want to see
-  static const String defaultSellerUsername = 'ngt001';
+  static String get defaultSellerUsername =>
+      dotenv.env['EBAY_SELLER_USERNAME'] ?? '';
 
   // ── Behaviour ─────────────────────────────────────────────────────────────
-  /// How many items to load per page on incremental fetch
-  static const int itemsPerPage = 50;
+  /// Items per page for Browse API (max 200)
+  static const int itemsPerPage = 200;
 
-  /// Refresh interval when app is in foreground (optional background refresh)
+  /// Cache TTL
   static const Duration foregroundRefreshInterval = Duration(minutes: 15);
 }
