@@ -118,8 +118,14 @@ class EbayApiClient {
         '/item_summary/search',
         options: Options(headers: {'Authorization': 'Bearer $token'}),
         queryParameters: {
-          'q': '*',
-          'filter': 'sellers:{$sellerUsername}',
+          // eBay's Browse API does NOT allow a '*' wildcard in `q`.
+          // Workaround to fetch ALL of a seller's items regardless of
+          // category: use category_ids=0 instead of a keyword search.
+          'category_ids': '0',
+          // Include AUCTION items too — by default Browse API only returns
+          // FIXED_PRICE (Buy It Now) listings, which would hide auctions.
+          'filter':
+              'sellers:{$sellerUsername},buyingOptions:{AUCTION|FIXED_PRICE}',
           'sort': sort.browseApiValue,
           'limit': limit,
           'offset': offset,
@@ -155,11 +161,36 @@ class EbayApiClient {
       if (e.type == DioExceptionType.connectionError) {
         throw EbayApiException('No internet connection.');
       }
+      // Surface eBay's specific error message (e.g. from a 400) instead of
+      // Dio's generic "status code X" text, to make debugging easier.
+      final ebayMessage = _extractEbayErrorMessage(e.response?.data);
+      if (ebayMessage != null) {
+        throw EbayApiException(
+          'eBay error (${e.response?.statusCode}): $ebayMessage',
+        );
+      }
       throw EbayApiException('Network error: ${e.message}');
     } catch (e) {
       if (e is EbayApiException) rethrow;
       throw EbayApiException('Unexpected error: $e');
     }
+  }
+
+  /// Parses eBay's standard error body shape:
+  /// `{ "errors": [ { "message": "...", "longMessage": "..." } ] }`
+  String? _extractEbayErrorMessage(dynamic data) {
+    try {
+      if (data is Map<String, dynamic>) {
+        final errors = data['errors'] as List?;
+        if (errors != null && errors.isNotEmpty) {
+          final first = errors.first as Map<String, dynamic>;
+          return (first['longMessage'] ?? first['message'])?.toString();
+        }
+      }
+    } catch (_) {
+      // Fall through to null if the shape is unexpected.
+    }
+    return null;
   }
 }
 
