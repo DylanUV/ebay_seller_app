@@ -131,10 +131,15 @@ class ListingsNotifier extends Notifier<ListingsState> {
         sort: sort,
       );
 
-      await _cache.saveListings(sellerUsername, listings);
+      // eBay no ordena bien cuando mezclas subastas y "Buy It Now" en la
+      // misma búsqueda, así que siempre ordenamos localmente para asegurar
+      // que el filtro seleccionado se refleje en pantalla.
+      final sorted = _sortLocally(listings, sort);
+
+      await _cache.saveListings(sellerUsername, sorted);
 
       state = state.copyWith(
-        listings: listings,
+        listings: sorted,
         isLoading: false,
         isRefreshing: false,
         lastUpdated: DateTime.now(),

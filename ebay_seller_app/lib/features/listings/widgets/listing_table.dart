@@ -6,13 +6,9 @@ import '../../../shared/theme/app_theme.dart';
 import 'countdown_widget.dart';
 import 'image_carousel.dart';
 
-// ── Column widths (fixed for performance — no layout recalculations) ──────────
-const double _colTime   = 76;
-const double _colPrice  = 72;
-const double _colImg    = 64;
-const double _colLink   = 48;
+// ── Row height (fixed for performance — no layout recalculations) ─────────────
 const double _rowHeight = 68;
-const double _headerH   = 32;
+const double _headerH = 32;
 
 class ListingsTable extends StatelessWidget {
   final List<EbayListing> listings;
@@ -32,10 +28,7 @@ class ListingsTable extends StatelessWidget {
             itemExtent: _rowHeight, // fixed height = massive perf boost
             itemBuilder: (ctx, i) {
               final listing = listings[i];
-              return _ListingRow(
-                listing: listing,
-                isEven: i.isEven,
-              );
+              return _ListingRow(listing: listing, isEven: i.isEven);
             },
           ),
         ),
@@ -53,22 +46,17 @@ class _TableHeader extends StatelessWidget {
       height: _headerH,
       decoration: const BoxDecoration(
         color: AppTheme.surfaceAlt,
-        border: Border(
-          bottom: BorderSide(color: AppTheme.divider, width: 1),
-        ),
+        border: Border(bottom: BorderSide(color: AppTheme.divider, width: 1)),
       ),
       child: Row(
         children: [
-          _HeaderCell('TIME LEFT',  _colTime),
+          Expanded(flex: 2, child: _HeaderCell('TIME LEFT', center: true)),
           _vDivider(),
-          _HeaderCell('PRICE',      _colPrice),
+          Expanded(flex: 2, child: _HeaderCell('PRICE', center: true)),
           _vDivider(),
-          _HeaderCell('PHOTOS',     _colImg, center: true),
+          Expanded(flex: 2, child: _HeaderCell('PHOTOS', center: true)),
           _vDivider(),
-          _HeaderCell('LINK',       _colLink, center: true),
-          // Title column fills remaining space
-          _vDivider(),
-          const Expanded(child: _HeaderCell('TITLE', double.infinity)),
+          Expanded(flex: 1, child: _HeaderCell('LINK', center: true)),
         ],
       ),
     );
@@ -83,10 +71,9 @@ class _TableHeader extends StatelessWidget {
 
 class _HeaderCell extends StatelessWidget {
   final String label;
-  final double width;
   final bool center;
 
-  const _HeaderCell(this.label, this.width, {this.center = false});
+  const _HeaderCell(this.label, {this.center = false});
 
   @override
   Widget build(BuildContext context) {
@@ -99,16 +86,7 @@ class _HeaderCell extends StatelessWidget {
         color: AppTheme.textMuted,
       ),
     );
-    if (width == double.infinity) {
-      return Padding(
-        padding: const EdgeInsets.only(left: 10),
-        child: child,
-      );
-    }
-    return SizedBox(
-      width: width,
-      child: Center(child: child),
-    );
+    return Center(child: child);
   }
 }
 
@@ -134,10 +112,9 @@ class _ListingRow extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           // ── Col 1: Time remaining ────────────────────────────────────────
-          SizedBox(
-            width: _colTime,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
+          Expanded(
+            flex: 2,
+            child: Center(
               child: listing.isAuction
                   ? CountdownWidget(
                       initialDuration: listing.timeRemaining,
@@ -149,13 +126,12 @@ class _ListingRow extends StatelessWidget {
           _vDivider(),
 
           // ── Col 2: Price ─────────────────────────────────────────────────
-          SizedBox(
-            width: _colPrice,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 6),
+          Expanded(
+            flex: 2,
+            child: Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Text(
                     _formatPrice(listing.price, listing.currency),
@@ -190,56 +166,19 @@ class _ListingRow extends StatelessWidget {
           ),
           _vDivider(),
 
-          // ── Col 3: Images ────────────────────────────────────────────────
-          SizedBox(
-            width: _colImg,
+          // ── Col 3: Images (más grande, ocupa espacio extra) ────────────────
+          Expanded(
+            flex: 2,
             child: Center(
               child: ListingImageThumb(imageUrls: listing.imageUrls),
             ),
           ),
           _vDivider(),
 
-          // ── Col 4: Link ──────────────────────────────────────────────────
-          SizedBox(
-            width: _colLink,
-            child: Center(
-              child: _LinkButton(listing: listing),
-            ),
-          ),
-          _vDivider(),
-
-          // ── Col 5: Title (fills remaining) ───────────────────────────────
+          // ── Col 4: Link (pequeña, solo el ícono) ───────────────────────────
           Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    listing.title,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: AppTheme.textPrimary,
-                      height: 1.35,
-                    ),
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  if (listing.condition != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 2),
-                      child: Text(
-                        listing.condition!,
-                        style: const TextStyle(
-                          fontSize: 9,
-                          color: AppTheme.textMuted,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
+            flex: 1,
+            child: Center(child: _LinkButton(listing: listing)),
           ),
         ],
       ),
@@ -256,10 +195,10 @@ class _ListingRow extends StatelessWidget {
     final symbol = currency == 'USD'
         ? '\$'
         : currency == 'EUR'
-            ? '€'
-            : currency == 'GBP'
-                ? '£'
-                : '$currency ';
+        ? '€'
+        : currency == 'GBP'
+        ? '£'
+        : '$currency ';
     return '$symbol${price.toStringAsFixed(2)}';
   }
 }
@@ -274,8 +213,8 @@ class _LinkButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () => _launch(listing.shortUrl),
-      onLongPress: () => _copy(context, listing.shortUrl),
+      onTap: () => _launch(listing.listingUrl),
+      onLongPress: () => _copy(context, listing.listingUrl),
       child: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
@@ -330,10 +269,7 @@ class EmptyListingsState extends StatelessWidget {
           const SizedBox(height: 16),
           Text(
             message ?? 'No active listings found',
-            style: const TextStyle(
-              color: AppTheme.textMuted,
-              fontSize: 14,
-            ),
+            style: const TextStyle(color: AppTheme.textMuted, fontSize: 14),
             textAlign: TextAlign.center,
           ),
         ],

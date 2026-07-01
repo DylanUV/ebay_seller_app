@@ -137,6 +137,13 @@ class EbayApiClient {
       final total = data['total'] as int? ?? 0;
       final items = (data['itemSummaries'] as List?) ?? [];
 
+      // ── TEMP DEBUG: imprime el JSON completo del primer item, partido en
+      // líneas cortas para que logcat de Android no las trunque.
+      if (items.isNotEmpty) {
+        _printJsonSafely(items.first as Map<String, dynamic>);
+      }
+      // ── FIN TEMP DEBUG ────────────────────────────────────────────────
+
       final listings = items
           .map((item) => EbayListing.fromBrowseApiJson(item))
           .where((l) => !l.isEnded)
@@ -192,6 +199,20 @@ class EbayApiClient {
     }
     return null;
   }
+}
+
+/// TEMP DEBUG: imprime un JSON completo pero troceado en líneas de máximo
+/// ~800 caracteres, porque logcat de Android corta las líneas largas
+/// (como pasó con el bloque que llegaba hasta "shippingOpti" y se cortaba).
+void _printJsonSafely(Map<String, dynamic> json) {
+  const chunkSize = 800;
+  final text = const JsonEncoder.withIndent('  ').convert(json);
+  print('🔍 RAW ITEM DE EBAY (${text.length} caracteres):');
+  for (var i = 0; i < text.length; i += chunkSize) {
+    final end = (i + chunkSize < text.length) ? i + chunkSize : text.length;
+    print(text.substring(i, end));
+  }
+  print('🔍 FIN DEL ITEM');
 }
 
 // ── Supporting types ──────────────────────────────────────────────────────────

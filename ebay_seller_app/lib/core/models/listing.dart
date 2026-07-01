@@ -70,13 +70,23 @@ class EbayListing extends HiveObject {
 
   bool get endingSoon => timeRemaining.inHours < 2 && !isEnded;
 
-  String get shortUrl => 'https://ebay.com/itm/$itemId';
+  /// eBay a veces manda imágenes en baja resolución (ej. s-l225.jpg).
+  /// Esto las cambia a la versión de alta resolución (s-l1600.jpg) para
+  /// que se vean bien en el visor de pantalla completa.
+  static String? _upscaleImageUrl(String? url) {
+    if (url == null || url.isEmpty) return url;
+    return url.replaceAll(RegExp(r's-l\d+\.jpg'), 's-l1600.jpg');
+  }
 
   // ── Factory: Browse API JSON ──────────────────────────────────────────────
 
   factory EbayListing.fromBrowseApiJson(Map<String, dynamic> json) {
-    // Price
-    final priceMap = json['price'] as Map<String, dynamic>? ?? {};
+    // Price — en subastas, eBay no manda 'price', manda 'currentBidPrice'.
+    // Usamos price si existe; si no, caemos a currentBidPrice.
+    final priceMap =
+        (json['price'] as Map<String, dynamic>?) ??
+        (json['currentBidPrice'] as Map<String, dynamic>?) ??
+        {};
     final price = double.tryParse(priceMap['value']?.toString() ?? '0') ?? 0.0;
     final currency = priceMap['currency']?.toString() ?? 'USD';
 
@@ -87,13 +97,13 @@ class EbayListing extends HiveObject {
 
     if (thumbnail != null) {
       for (final img in thumbnail) {
-        final url = img['imageUrl']?.toString();
+        final url = _upscaleImageUrl(img['imageUrl']?.toString());
         if (url != null && url.isNotEmpty) images.add(url);
       }
     }
     if (additional != null) {
       for (final img in additional) {
-        final url = img['imageUrl']?.toString();
+        final url = _upscaleImageUrl(img['imageUrl']?.toString());
         if (url != null && url.isNotEmpty && !images.contains(url)) {
           images.add(url);
         }
@@ -139,10 +149,14 @@ class EbayListing extends HiveObject {
     // Condition
     final condition = json['condition']?.toString();
 
-    // URL
+    // URL — itemWebUrl es el link real de eBay y casi siempre viene.
+    // Si por alguna razón no llega, armamos uno manualmente: el itemId
+    // de eBay tiene formato "v1|123456789|0", así que sacamos solo el
+    // número del medio (el ID real de la publicación).
+    final rawItemId = json['itemId']?.toString() ?? '';
     final itemUrl =
         json['itemWebUrl']?.toString() ??
-        'https://ebay.com/itm/${json['itemId']}';
+        'https://www.ebay.com/itm/${rawItemId.split('|').length > 1 ? rawItemId.split('|')[1] : rawItemId}';
 
     return EbayListing(
       itemId: json['itemId']?.toString() ?? '',
