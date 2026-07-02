@@ -218,7 +218,7 @@ class _LinkButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: AppTheme.accent.withOpacity(0.12),
+          color: AppTheme.accent.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(8),
         ),
         child: const Icon(
@@ -232,9 +232,7 @@ class _LinkButton extends StatelessWidget {
 
   Future<void> _launch(String url) async {
     final uri = Uri.parse(url);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
   void _copy(BuildContext context, String url) {

@@ -4,16 +4,22 @@ import '../models/listing.dart';
 /// Manages local persistence of listings with TTL-based invalidation.
 class CacheService {
   static const _listingsBoxName = 'listings_cache';
-  static const _metaBoxName    = 'cache_meta';
+  static const _metaBoxName = 'cache_meta';
 
   // Cache is considered fresh for 30 minutes
   static const cacheTTL = Duration(minutes: 30);
 
   static CacheService? _instance;
-  static CacheService get instance => _instance!;
+  static CacheService get instance {
+    assert(
+      _instance != null,
+      'CacheService.init() debe llamarse antes de usar instance',
+    );
+    return _instance!;
+  }
 
   late final Box<EbayListing> _listingsBox;
-  late final Box<dynamic>     _metaBox;
+  late final Box<dynamic> _metaBox;
 
   CacheService._();
 
@@ -25,7 +31,7 @@ class CacheService {
 
     final service = CacheService._();
     service._listingsBox = await Hive.openBox<EbayListing>(_listingsBoxName);
-    service._metaBox     = await Hive.openBox<dynamic>(_metaBoxName);
+    service._metaBox = await Hive.openBox<dynamic>(_metaBoxName);
 
     _instance = service;
     return service;
@@ -63,16 +69,13 @@ class CacheService {
     final prefix = _listingsKey(sellerUsername);
 
     // Delete old entries for this seller
-    final keysToDelete =
-        _listingsBox.keys
-            .where((k) => k.toString().startsWith(prefix))
-            .toList();
+    final keysToDelete = _listingsBox.keys
+        .where((k) => k.toString().startsWith(prefix))
+        .toList();
     await _listingsBox.deleteAll(keysToDelete);
 
     // Write new entries
-    final entries = {
-      for (final l in listings) '$prefix${l.itemId}': l,
-    };
+    final entries = {for (final l in listings) '$prefix${l.itemId}': l};
     await _listingsBox.putAll(entries);
 
     // Update timestamp
@@ -91,10 +94,9 @@ class CacheService {
 
   Future<void> clearSeller(String sellerUsername) async {
     final prefix = _listingsKey(sellerUsername);
-    final keysToDelete =
-        _listingsBox.keys
-            .where((k) => k.toString().startsWith(prefix))
-            .toList();
+    final keysToDelete = _listingsBox.keys
+        .where((k) => k.toString().startsWith(prefix))
+        .toList();
     await _listingsBox.deleteAll(keysToDelete);
     await _metaBox.delete(_timestampKey(sellerUsername));
   }
