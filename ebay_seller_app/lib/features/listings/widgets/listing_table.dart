@@ -5,6 +5,7 @@ import '../../../core/models/listing.dart';
 import '../../../shared/theme/app_theme.dart';
 import 'countdown_widget.dart';
 import 'image_carousel.dart';
+import 'package:share_plus/share_plus.dart';
 
 // ── Row height (fixed for performance — no layout recalculations) ─────────────
 const double _rowHeight = 68;
@@ -28,7 +29,11 @@ class ListingsTable extends StatelessWidget {
             itemExtent: _rowHeight, // fixed height = massive perf boost
             itemBuilder: (ctx, i) {
               final listing = listings[i];
-              return _ListingRow(listing: listing, isEven: i.isEven);
+              return _ListingRow(
+                key: ValueKey(listing.itemId),
+                listing: listing,
+                isEven: i.isEven,
+              );
             },
           ),
         ),
@@ -56,7 +61,7 @@ class _TableHeader extends StatelessWidget {
           _vDivider(),
           Expanded(flex: 2, child: _HeaderCell('PHOTOS', center: true)),
           _vDivider(),
-          Expanded(flex: 1, child: _HeaderCell('LINK', center: true)),
+          Expanded(flex: 2, child: _HeaderCell('LINK', center: true)),
         ],
       ),
     );
@@ -96,7 +101,7 @@ class _ListingRow extends StatelessWidget {
   final EbayListing listing;
   final bool isEven;
 
-  const _ListingRow({required this.listing, required this.isEven});
+  const _ListingRow({super.key, required this.listing, required this.isEven});
 
   @override
   Widget build(BuildContext context) {
@@ -177,7 +182,7 @@ class _ListingRow extends StatelessWidget {
 
           // ── Col 4: Link (pequeña, solo el ícono) ───────────────────────────
           Expanded(
-            flex: 1,
+            flex: 2,
             child: Center(child: _LinkButton(listing: listing)),
           ),
         ],
@@ -207,41 +212,58 @@ class _ListingRow extends StatelessWidget {
 
 class _LinkButton extends StatelessWidget {
   final EbayListing listing;
-
   const _LinkButton({required this.listing});
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => _launch(listing.listingUrl),
-      onLongPress: () => _copy(context, listing.listingUrl),
-      child: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: AppTheme.accent.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(8),
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Abrir en eBay
+        GestureDetector(
+          onTap: () => _launch(listing.listingUrl),
+          child: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: AppTheme.accent.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(
+              Icons.open_in_new_rounded,
+              color: AppTheme.accent,
+              size: 16,
+            ),
+          ),
         ),
-        child: const Icon(
-          Icons.open_in_new_rounded,
-          color: AppTheme.accent,
-          size: 16,
+        const SizedBox(width: 6),
+        // Compartir
+        GestureDetector(
+          onTap: () => _share(),
+          child: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: AppTheme.surfaceAlt,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(
+              Icons.share_rounded,
+              color: AppTheme.textMuted,
+              size: 16,
+            ),
+          ),
         ),
-      ),
+      ],
     );
   }
 
   Future<void> _launch(String url) async {
-    final uri = Uri.parse(url);
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
+    await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
   }
 
-  void _copy(BuildContext context, String url) {
-    Clipboard.setData(ClipboardData(text: url));
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Link copied to clipboard'),
-        duration: Duration(seconds: 2),
-      ),
+  void _share() {
+    SharePlus.instance.share(
+      ShareParams(text: '${listing.title}\n${listing.listingUrl}'),
     );
   }
 }
