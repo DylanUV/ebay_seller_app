@@ -73,9 +73,11 @@ class EbayListing extends HiveObject {
   /// eBay a veces manda imágenes en baja resolución (ej. s-l225.jpg).
   /// Esto las cambia a la versión de alta resolución (s-l1600.jpg) para
   /// que se vean bien en el visor de pantalla completa.
+  static final _sizeRegex = RegExp(r's-l\d+\.jpg');
+
   static String? _upscaleImageUrl(String? url) {
     if (url == null || url.isEmpty) return url;
-    return url.replaceAll(RegExp(r's-l\d+\.jpg'), 's-l1600.jpg');
+    return url.replaceAll(_sizeRegex, 's-l1600.jpg');
   }
 
   // ── Factory: Browse API JSON ──────────────────────────────────────────────

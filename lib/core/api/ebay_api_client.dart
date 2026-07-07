@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import '../models/listing.dart';
 
 /// eBay Browse API client with OAuth Client Credentials.
@@ -84,26 +85,37 @@ class EbayApiClient {
     ListingSort sort = ListingSort.endingSoon,
   }) async {
     final token = await _getToken();
-    final allListings = <EbayListing>[];
-    int offset = 0;
     const limit = 200; // Browse API max per page
-    int? total;
 
-    do {
-      final result = await _fetchPage(
-        token: token,
-        sellerUsername: sellerUsername,
-        sort: sort,
-        limit: limit,
-        offset: offset,
-      );
+    // 1. Primera página: nos dice el total
+    final first = await _fetchPage(
+      token: token,
+      sellerUsername: sellerUsername,
+      sort: sort,
+      limit: limit,
+      offset: 0,
+    );
 
-      allListings.addAll(result.listings);
-      total ??= result.total;
-      offset += limit;
-    } while (total != null && offset < total && allListings.length < total);
+    if (first.total <= limit) return first.listings;
 
-    return allListings;
+    // 2. El resto de páginas, todas en paralelo
+    final remainingOffsets = [
+      for (int o = limit; o < first.total; o += limit) o,
+    ];
+
+    final results = await Future.wait(
+      remainingOffsets.map(
+        (offset) => _fetchPage(
+          token: token,
+          sellerUsername: sellerUsername,
+          sort: sort,
+          limit: limit,
+          offset: offset,
+        ),
+      ),
+    );
+
+    return [...first.listings, for (final r in results) ...r.listings];
   }
 
   Future<_BrowsePageResult> _fetchPage({
@@ -139,7 +151,7 @@ class EbayApiClient {
 
       // ── TEMP DEBUG: imprime el JSON completo del primer item, partido en
       // líneas cortas para que logcat de Android no las trunque.
-      if (items.isNotEmpty) {
+      if (kDebugMode && items.isNotEmpty) {
         _printJsonSafely(items.first as Map<String, dynamic>);
       }
       // ── FIN TEMP DEBUG ────────────────────────────────────────────────
