@@ -18,6 +18,7 @@ class FilterSheet extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final currentSort = ref.watch(sortProvider);
+    final currentHeat = ref.watch(heatFilterProvider);
 
     return SafeArea(
       child: Padding(
@@ -60,6 +61,59 @@ class FilterSheet extends ConsumerWidget {
                   Navigator.of(context).pop();
                 },
               ),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'INTEREST LEVEL',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.4,
+                color: AppTheme.textMuted,
+              ),
+            ),
+            const SizedBox(height: 14),
+
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: HeatFilter.values.map((heat) {
+                final isSelected = currentHeat == heat;
+                return GestureDetector(
+                  onTap: () =>
+                      ref.read(heatFilterProvider.notifier).setFilter(heat),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? AppTheme.accent.withValues(alpha: 0.1)
+                          : AppTheme.surface,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: isSelected
+                            ? AppTheme.accent.withValues(alpha: 0.4)
+                            : AppTheme.divider,
+                        width: isSelected ? 1.5 : 1,
+                      ),
+                    ),
+                    child: Text(
+                      heat.label,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: isSelected
+                            ? FontWeight.w600
+                            : FontWeight.w400,
+                        color: isSelected
+                            ? AppTheme.accent
+                            : AppTheme.textPrimary,
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
             ),
           ],
         ),

@@ -189,15 +189,21 @@ final listingsProvider = NotifierProvider<ListingsNotifier, ListingsState>(
 
 // ── Heat filter (Hot / Warm / Cold / Sleeper) ──────────────────────────────
 
-enum HeatFilter { all, sleeper }
+enum HeatFilter {
+  all('All'),
+  hot('🔥 Hot'),
+  warm('🟡 Warm'),
+  cold('❄️ Cold');
+
+  final String label;
+  const HeatFilter(this.label);
+}
 
 class HeatFilterNotifier extends Notifier<HeatFilter> {
   @override
   HeatFilter build() => HeatFilter.all;
 
-  void toggle() {
-    state = state == HeatFilter.all ? HeatFilter.sleeper : HeatFilter.all;
-  }
+  void setFilter(HeatFilter filter) => state = filter;
 }
 
 final heatFilterProvider = NotifierProvider<HeatFilterNotifier, HeatFilter>(
