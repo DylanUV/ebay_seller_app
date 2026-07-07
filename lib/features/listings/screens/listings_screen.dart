@@ -5,7 +5,8 @@ import '../../../core/models/listing.dart';
 import '../../../core/utils/app_config.dart';
 import '../providers/listings_provider.dart';
 import '../widgets/filter_sheet.dart';
-import '../widgets/listing_table.dart';
+import '../widgets/listing_cards.dart';
+import '../widgets/listing_table.dart' show EmptyListingsState;
 import '../widgets/offline_banner.dart';
 
 class ListingsScreen extends ConsumerWidget {
@@ -168,7 +169,7 @@ class ListingsScreen extends ConsumerWidget {
           .refresh(sort: ref.read(sortProvider)),
       color: AppTheme.accent,
       backgroundColor: AppTheme.surfaceAlt,
-      child: ListingsTable(listings: state.listings),
+      child: ListingsCards(listings: state.listings),
     );
   }
 }

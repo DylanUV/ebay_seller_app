@@ -18,16 +18,16 @@ class ListingImageThumb extends StatelessWidget {
     return GestureDetector(
       onTap: () => _openViewer(context, 0),
       child: Stack(
+        fit: StackFit.expand,
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(6),
             child: CachedNetworkImage(
               imageUrl: imageUrls.first,
-              width: 52,
-              height: 52,
               fit: BoxFit.cover,
-              memCacheWidth: 104, // 2x for retina, keeps RAM low
-              memCacheHeight: 104,
+              width: double.infinity,
+              height: double.infinity,
+              memCacheWidth: 200, // suficiente para tarjetas grandes
               placeholder: (_, __) => const _Placeholder(),
               errorWidget: (_, __, ___) => const _Placeholder(),
             ),
@@ -251,8 +251,8 @@ class _Placeholder extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 52,
-      height: 52,
+      width: double.infinity,
+      height: double.infinity,
       decoration: BoxDecoration(
         color: AppTheme.surfaceAlt,
         borderRadius: BorderRadius.circular(6),

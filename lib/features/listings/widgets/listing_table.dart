@@ -175,7 +175,11 @@ class _ListingRow extends StatelessWidget {
           Expanded(
             flex: 2,
             child: Center(
-              child: ListingImageThumb(imageUrls: listing.imageUrls),
+              child: SizedBox(
+                width: 52,
+                height: 52,
+                child: ListingImageThumb(imageUrls: listing.imageUrls),
+              ),
             ),
           ),
           _vDivider(),
