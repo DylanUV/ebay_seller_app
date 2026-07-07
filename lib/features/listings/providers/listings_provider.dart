@@ -186,3 +186,20 @@ class ListingsNotifier extends Notifier<ListingsState> {
 final listingsProvider = NotifierProvider<ListingsNotifier, ListingsState>(
   ListingsNotifier.new,
 );
+
+// ── Heat filter (Hot / Warm / Cold / Sleeper) ──────────────────────────────
+
+enum HeatFilter { all, sleeper }
+
+class HeatFilterNotifier extends Notifier<HeatFilter> {
+  @override
+  HeatFilter build() => HeatFilter.all;
+
+  void toggle() {
+    state = state == HeatFilter.all ? HeatFilter.sleeper : HeatFilter.all;
+  }
+}
+
+final heatFilterProvider = NotifierProvider<HeatFilterNotifier, HeatFilter>(
+  HeatFilterNotifier.new,
+);

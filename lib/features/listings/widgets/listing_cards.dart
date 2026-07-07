@@ -33,16 +33,14 @@ class _ListingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Tarjeta "caliente": subasta terminando pronto o con varias pujas.
-    final isHot =
-        listing.isAuction &&
-        (listing.endingSoon || (listing.bidCount ?? 0) >= 5);
-
-    // Tarjeta "fría": subasta con 0 o 1 bids (poco interés hasta ahora).
-    final isCold = listing.isAuction && !isHot && (listing.bidCount ?? 0) <= 1;
+    final bids = listing.bidCount ?? 0;
+    final isHot = listing.isAuction && bids >= 5;
+    final isWarm = listing.isAuction && bids >= 2 && bids <= 4;
+    final isCold = listing.isAuction && bids <= 1;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
+      height: 145,
       decoration: BoxDecoration(
         color: AppTheme.surface,
         borderRadius: BorderRadius.circular(14),
@@ -51,117 +49,117 @@ class _ListingCard extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: Stack(
         children: [
-          IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // ── Imagen: llena todo el alto de la tarjeta ────────────────
-                SizedBox(
-                  width: 100,
-                  child: ListingImageThumb(imageUrls: listing.imageUrls),
-                ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // ── Imagen: llena todo el alto de la tarjeta ────────────────
+              SizedBox(
+                width: 100,
+                child: ListingImageThumb(imageUrls: listing.imageUrls),
+              ),
 
-                // ── Contenido ────────────────────────────────────────────────
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.all(10),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Título
-                        Text(
-                          listing.title,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: AppTheme.textPrimary,
-                            height: 1.25,
-                          ),
+              // ── Contenido ────────────────────────────────────────────────
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(10),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      // Título
+                      Text(
+                        listing.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.textPrimary,
+                          height: 1.25,
                         ),
-                        const SizedBox(height: 6),
+                      ),
+                      const SizedBox(height: 6),
 
-                        // Precio + envío + tiempo restante en una fila
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            Text(
-                              _formatPrice(listing.price, listing.currency),
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w800,
-                                color: AppTheme.accentWarm,
-                                fontFeatures: [FontFeature.tabularFigures()],
-                              ),
-                            ),
-                            if (listing.shippingCost != null) ...[
-                              const SizedBox(width: 6),
-                              Text(
-                                '+ ${listing.shippingCost} ship',
-                                style: const TextStyle(
-                                  fontSize: 10,
-                                  color: AppTheme.textMuted,
-                                ),
-                              ),
-                            ],
-                            const Spacer(),
-                            listing.isAuction
-                                ? CountdownWidget(
-                                    initialDuration: listing.timeRemaining,
-                                    endingSoon: listing.endingSoon,
-                                  )
-                                : StaticListingTypeBadge(
-                                    listingType: listing.listingType,
-                                  ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-
-                        // Bids (si aplica)
-                        if (listing.bidCount != null && listing.bidCount! > 0)
+                      // Precio + envío + tiempo restante en una fila
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
                           Text(
-                            '${listing.bidCount} bid${listing.bidCount == 1 ? '' : 's'}',
+                            _formatPrice(listing.price, listing.currency),
                             style: const TextStyle(
-                              fontSize: 10,
-                              color: AppTheme.textMuted,
-                              fontWeight: FontWeight.w600,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                              color: AppTheme.accentWarm,
+                              fontFeatures: [FontFeature.tabularFigures()],
                             ),
                           ),
-
-                        const SizedBox(height: 8),
-
-                        // Acciones
-                        Row(
-                          children: [
-                            _ActionChip(
-                              icon: Icons.open_in_new_rounded,
-                              label: 'View',
-                              color: AppTheme.accent,
-                              onTap: () => _launch(listing.listingUrl),
-                            ),
-                            const SizedBox(width: 8),
-                            _ActionChip(
-                              icon: Icons.share_rounded,
-                              label: 'Share',
-                              color: AppTheme.textMuted,
-                              onTap: () => _share(),
+                          if (listing.shippingCost != null) ...[
+                            const SizedBox(width: 6),
+                            Text(
+                              '+ ${listing.shippingCost} ship',
+                              style: const TextStyle(
+                                fontSize: 10,
+                                color: AppTheme.textMuted,
+                              ),
                             ),
                           ],
+                          const Spacer(),
+                          listing.isAuction
+                              ? CountdownWidget(
+                                  key: ValueKey(listing.itemId),
+                                  initialDuration: listing.timeRemaining,
+                                  endingSoon: listing.endingSoon,
+                                )
+                              : StaticListingTypeBadge(
+                                  listingType: listing.listingType,
+                                ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+
+                      // Bids (si aplica)
+                      if (listing.bidCount != null && listing.bidCount! > 0)
+                        Text(
+                          '${listing.bidCount} bid${listing.bidCount == 1 ? '' : 's'}',
+                          style: const TextStyle(
+                            fontSize: 10,
+                            color: AppTheme.textMuted,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
-                      ],
-                    ),
+
+                      const SizedBox(height: 8),
+
+                      // Acciones
+                      Row(
+                        children: [
+                          _ActionChip(
+                            icon: Icons.open_in_new_rounded,
+                            label: 'View',
+                            color: AppTheme.accent,
+                            onTap: () => _launch(listing.listingUrl),
+                          ),
+                          const SizedBox(width: 8),
+                          _ActionChip(
+                            icon: Icons.share_rounded,
+                            label: 'Share',
+                            color: AppTheme.textMuted,
+                            onTap: () => _share(),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
 
           // ── Badge de fuego (subasta caliente) ─────────────────────────
           if (isHot)
             Positioned(bottom: 6, right: 6, child: _StatusBadge(emoji: '🔥')),
-
-          // ── Badge de frío (subasta con 0-1 bids) ───────────────────────
+          if (isWarm)
+            Positioned(bottom: 6, right: 6, child: _StatusBadge(emoji: '🟡')),
           if (isCold)
             Positioned(bottom: 6, right: 6, child: _StatusBadge(emoji: '❄️')),
         ],

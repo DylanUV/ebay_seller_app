@@ -27,7 +27,7 @@ class ListingImageThumb extends StatelessWidget {
               fit: BoxFit.cover,
               width: double.infinity,
               height: double.infinity,
-              memCacheWidth: 200, // suficiente para tarjetas grandes
+              memCacheWidth: 400, // suficiente para tarjetas grandes
               placeholder: (_, __) => const _Placeholder(),
               errorWidget: (_, __, ___) => const _Placeholder(),
             ),

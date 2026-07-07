@@ -16,6 +16,7 @@ class ListingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(listingsProvider);
     final sort = ref.watch(sortProvider);
+    final heatFilter = ref.watch(heatFilterProvider);
 
     return Scaffold(
       backgroundColor: AppTheme.background,
@@ -63,6 +64,18 @@ class ListingsScreen extends ConsumerWidget {
                 ),
               ),
             ),
+          // Sleeper filter toggle
+          IconButton(
+            onPressed: () => ref.read(heatFilterProvider.notifier).toggle(),
+            icon: Icon(
+              Icons.bedtime_rounded,
+              color: heatFilter == HeatFilter.sleeper
+                  ? AppTheme.accent
+                  : AppTheme.textMuted,
+              size: 20,
+            ),
+            tooltip: 'Sleeper deals (low bids, ending soon)',
+          ),
 
           // Filter button
           IconButton(
@@ -169,8 +182,20 @@ class ListingsScreen extends ConsumerWidget {
           .refresh(sort: ref.read(sortProvider)),
       color: AppTheme.accent,
       backgroundColor: AppTheme.surfaceAlt,
-      child: ListingsCards(listings: state.listings),
+      child: ListingsCards(listings: _applyHeatFilter(state.listings, ref)),
     );
+  }
+
+  List<EbayListing> _applyHeatFilter(
+    List<EbayListing> listings,
+    WidgetRef ref,
+  ) {
+    final filter = ref.watch(heatFilterProvider);
+    if (filter == HeatFilter.all) return listings;
+    return listings.where((l) {
+      final bids = l.bidCount ?? 0;
+      return l.isAuction && bids <= 1 && l.endingSoon;
+    }).toList();
   }
 }
 
