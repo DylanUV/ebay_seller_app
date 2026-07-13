@@ -7,10 +7,7 @@ import '../../../core/utils/app_config.dart';
 // ── API Client provider ───────────────────────────────────────────────────────
 
 final ebayClientProvider = Provider<EbayApiClient>((ref) {
-  return EbayApiClient(
-    clientId: AppConfig.ebayClientId,
-    clientSecret: AppConfig.ebayClientSecret,
-  );
+  return EbayApiClient();
 });
 
 // ── Sort provider ─────────────────────────────────────────────────────────────
