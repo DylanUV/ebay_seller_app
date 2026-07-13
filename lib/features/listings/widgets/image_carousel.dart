@@ -194,7 +194,39 @@ class _FullScreenViewerState extends State<_FullScreenViewer> {
               ),
             ),
           ),
-
+          // ── Desktop arrow navigation ────────────────────────────────────
+          if (widget.imageUrls.length > 1) ...[
+            if (_current > 0)
+              Positioned(
+                left: 12,
+                top: 0,
+                bottom: 0,
+                child: Center(
+                  child: _NavArrow(
+                    icon: Icons.chevron_left_rounded,
+                    onTap: () => _controller.previousPage(
+                      duration: const Duration(milliseconds: 250),
+                      curve: Curves.easeOut,
+                    ),
+                  ),
+                ),
+              ),
+            if (_current < widget.imageUrls.length - 1)
+              Positioned(
+                right: 12,
+                top: 0,
+                bottom: 0,
+                child: Center(
+                  child: _NavArrow(
+                    icon: Icons.chevron_right_rounded,
+                    onTap: () => _controller.nextPage(
+                      duration: const Duration(milliseconds: 250),
+                      curve: Curves.easeOut,
+                    ),
+                  ),
+                ),
+              ),
+          ],
           // ── Dot indicators ───────────────────────────────────────────────
           if (widget.imageUrls.length > 1)
             Positioned(
@@ -205,16 +237,23 @@ class _FullScreenViewerState extends State<_FullScreenViewer> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: List.generate(
                   widget.imageUrls.length,
-                  (i) => AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    margin: const EdgeInsets.symmetric(horizontal: 3),
-                    width: i == _current ? 16 : 6,
-                    height: 6,
-                    decoration: BoxDecoration(
-                      color: i == _current
-                          ? AppTheme.accent
-                          : Colors.white.withValues(alpha: 0.4),
-                      borderRadius: BorderRadius.circular(3),
+                  (i) => GestureDetector(
+                    onTap: () => _controller.animateToPage(
+                      i,
+                      duration: const Duration(milliseconds: 250),
+                      curve: Curves.easeOut,
+                    ),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      margin: const EdgeInsets.symmetric(horizontal: 3),
+                      width: i == _current ? 16 : 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: i == _current
+                            ? AppTheme.accent
+                            : Colors.white.withValues(alpha: 0.4),
+                        borderRadius: BorderRadius.circular(3),
+                      ),
                     ),
                   ),
                 ),
@@ -261,6 +300,28 @@ class _Placeholder extends StatelessWidget {
         Icons.image_outlined,
         color: AppTheme.textMuted,
         size: 20,
+      ),
+    );
+  }
+}
+
+class _NavArrow extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _NavArrow({required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(6),
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.5),
+          shape: BoxShape.circle,
+        ),
+        child: Icon(icon, color: Colors.white, size: 26),
       ),
     );
   }
