@@ -1,15 +1,33 @@
 # eBay Seller Listings App
 
-App móvil Flutter para visualizar las publicaciones activas de un vendedor de eBay en formato tabla optimizado.
+App Flutter (Android / iOS / Web) para visualizar en vivo las publicaciones
+activas de un vendedor de eBay, en tarjetas con filtros y cuenta regresiva
+para subastas.
+
+---
+
+## Arquitectura
+
+```
+┌─────────────┐      HTTPS       ┌──────────────────────┐      HTTPS      ┌──────────┐
+│  Flutter App │ ───────────────▶│  Backend (Go, propio) │───────────────▶│  eBay API │
+│ (móvil / web)│  GET /listings   │  ebay-back.kaerdos.dev│  OAuth + Browse │           │
+└─────────────┘                  └──────────────────────┘                 └──────────┘
+```
+
+La app **nunca** habla directo con eBay. Le pide los listings a nuestro
+propio backend (repo `ebay_seller_backend`), que guarda el Client ID/Secret
+de eBay y hace el OAuth por su cuenta. Así el secret nunca viaja al
+dispositivo del usuario ni queda expuesto en un build web.
 
 ---
 
 ## Características
 
-- **Tabla con 4 columnas**: tiempo restante, precio, imágenes, link
+- **Tarjetas por publicación**: imagen, precio, tiempo restante, link
 - **Visor de imágenes**: tap abre pantalla completa con carrusel deslizable
 - **Cuenta regresiva en vivo** para subastas (se actualiza cada segundo)
-- **4 filtros de orden**: termina antes/después, precio mayor/menor
+- **Filtros de orden**: termina antes/después, precio mayor/menor
 - **Modo offline**: muestra caché de la última sesión si no hay internet
 - **Cache de 30 min**: abre instantáneo sin esperar la API
 
@@ -17,25 +35,29 @@ App móvil Flutter para visualizar las publicaciones activas de un vendedor de e
 
 ## Setup paso a paso
 
-### 1. Obtener credenciales de eBay
+### 1. Levantar el backend
 
-1. Ve a [developer.ebay.com](https://developer.ebay.com) y crea una cuenta
-2. En el dashboard, ve a **My Account → Application Keys**
-3. Crea una nueva app → selecciona **Production**
-4. Copia tu **App ID (Client ID)** — es el único que necesitas para la Finding API
+El backend vive en un repo aparte (`ebay_seller_backend`, Go + Gin). Necesita
+sus propias variables (`EBAY_CLIENT_ID`, `EBAY_CLIENT_SECRET`,
+`DEFAULT_SELLER_USERNAME`, `PORT`) corriendo en el server o en Docker.
+Sacá el Client ID/Secret desde [developer.ebay.com](https://developer.ebay.com)
+→ **My Account → Application Keys** → app en modo **Production**.
 
-> ⚠️ La Finding API es **gratuita** y no requiere OAuth para consultas públicas de listings.
+> La app Flutter **no necesita** el Client ID/Secret de eBay en ningún
+> momento — eso vive únicamente en el backend.
 
-### 2. Configurar la app
+### 2. Configurar la app Flutter
 
-Abre `lib/core/utils/app_config.dart` y reemplaza los valores:
+Creá un archivo `.env` en la raíz del proyecto (no se commitea, está en
+`.gitignore`):
 
-```dart
-static const String ebayAppId = 'TuNombre-TuApp-PRD-xxxxxxx-xxxxxxxx';
-static const String defaultSellerUsername = 'nombre-del-vendedor';
+```
+EBAY_SELLER_USERNAME=nombre-del-vendedor
 ```
 
-El `sellerUsername` es el nombre de usuario de eBay del vendedor, el mismo que aparece en sus publicaciones.
+Es el username de eBay del vendedor, el mismo que aparece en sus
+publicaciones. Si necesitás apuntar a otra URL de backend (por ejemplo local
+en desarrollo), cambiá `_apiUrl` en `lib/core/api/ebay_api_client.dart`.
 
 ### 3. Instalar dependencias
 
@@ -52,8 +74,11 @@ flutter pub run build_runner build --delete-conflicting-outputs
 ### 5. Correr la app
 
 ```bash
-# En un dispositivo Android conectado o emulador
+# Android/iOS
 flutter run --release
+
+# Web
+flutter run -d chrome --release
 ```
 
 Usa `--release` para probar el rendimiento real (modo debug es ~3x más lento).
@@ -64,46 +89,59 @@ Usa `--release` para probar el rendimiento real (modo debug es ~3x más lento).
 
 ```
 lib/
-├── main.dart                          # Entry point
+├── main.dart                              # Entry point
 ├── core/
 │   ├── api/
-│   │   └── ebay_api_client.dart       # Cliente eBay Finding API
+│   │   └── ebay_api_client.dart           # Cliente HTTP hacia nuestro backend
 │   ├── cache/
-│   │   └── cache_service.dart         # Persistencia local con Hive
+│   │   └── cache_service.dart             # Persistencia local con Hive
 │   ├── models/
-│   │   ├── listing.dart               # Modelo EbayListing + enums
-│   │   └── listing.g.dart             # Generado por build_runner
+│   │   ├── listing.dart                   # Modelo EbayListing + enums
+│   │   └── listing.g.dart                 # Generado por build_runner
 │   └── utils/
-│       └── app_config.dart            # ← EDITAR AQUÍ tus credenciales
+│       └── app_config.dart                # Config general (seller username)
 ├── features/
 │   └── listings/
 │       ├── providers/
-│       │   └── listings_provider.dart # Estado con Riverpod
+│       │   └── listings_provider.dart     # Estado con Riverpod
 │       ├── screens/
-│       │   └── listings_screen.dart   # Pantalla principal
+│       │   └── listings_screen.dart       # Pantalla principal
 │       └── widgets/
-│           ├── listing_table.dart     # Tabla principal
-│           ├── image_carousel.dart    # Visor de imágenes
-│           ├── countdown_widget.dart  # Temporizador en vivo
-│           ├── filter_sheet.dart      # Bottom sheet filtros
-│           └── offline_banner.dart    # Banner sin internet
+│           ├── listing_cards.dart         # Tarjetas de publicaciones
+│           ├── empty_listings_state.dart  # Estado vacío / sin resultados
+│           ├── image_carousel.dart        # Visor de imágenes
+│           ├── countdown_widget.dart      # Temporizador en vivo
+│           ├── filter_sheet.dart          # Bottom sheet filtros
+│           └── offline_banner.dart        # Banner sin internet
 └── shared/
     └── theme/
-        └── app_theme.dart             # Paleta y tipografía
+        └── app_theme.dart                 # Paleta y tipografía
 ```
 
 ---
 
-## Límites de la eBay Finding API (plan gratuito)
+## Límites de la eBay Browse API
 
 | Límite | Valor |
 |--------|-------|
-| Llamadas por día | 5,000 |
-| Ítems por página | 100 |
-| Páginas máximas | 100 |
-| Ítems máximos por búsqueda | 10,000 |
+| Ítems por página | 200 (máximo permitido) |
+| Rate limit típico (app Production) | 5,000 llamadas/día |
 
-Con el caché de 30 min configurado, una sesión típica consume ~2-5 llamadas. No llegarás al límite con uso normal.
+Con el caché de 30 min configurado, una sesión típica consume muy pocas
+llamadas. La app pagina automáticamente hasta traer todos los listings
+activos del vendedor (típicamente ~300, en varias páginas en paralelo).
+
+---
+
+## Seguridad: qué va en `.env` y qué no
+
+- **Nunca** agregues `EBAY_CLIENT_ID` ni `EBAY_CLIENT_SECRET` al `.env` de
+  esta app. Como `.env` se empaqueta como *asset* de Flutter, terminaría
+  legible dentro del build (y en la web, servido como archivo público).
+- Esas credenciales viven **solo** en el backend, que corre en un servidor
+  que controlamos y nunca expone su código ni sus variables al cliente.
+- Lo único que necesita este `.env` es `EBAY_SELLER_USERNAME`, que no es un
+  dato sensible.
 
 ---
 
@@ -119,20 +157,20 @@ static const cacheTTL = Duration(minutes: 30); // ← cambiar aquí
 En `lib/shared/theme/app_theme.dart` están todos los tokens de color.
 
 ### Agregar más vendedores
-El sistema está preparado para múltiples vendedores. El caché guarda por `sellerUsername`, así que solo necesitas instanciar otro `ListingsNotifier` con un username diferente.
+El sistema está preparado para múltiples vendedores. El caché guarda por
+`sellerUsername`, así que solo necesitas instanciar otro `ListingsNotifier`
+con un username diferente.
 
 ---
 
-## Build para producción (APK)
+## Build para producción
 
 ```bash
+# Android (3 APKs optimizados por arquitectura)
 flutter build apk --release --split-per-abi
+
+# Web
+flutter build web --release
 ```
 
-Esto genera 3 APKs optimizados por arquitectura (arm64, arm32, x86_64).
-El más liviano (arm64) pesa aproximadamente **13-16 MB**.
-
-Para instalar directamente en un dispositivo:
-```bash
-flutter install --release
-```
+El APK arm64 pesa aproximadamente **13-16 MB**.

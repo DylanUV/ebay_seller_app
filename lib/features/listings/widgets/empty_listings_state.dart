@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../../shared/theme/app_theme.dart';
 
+/// Se muestra cuando no hay publicaciones activas (o los filtros no
+/// devuelven resultados).
 class EmptyListingsState extends StatelessWidget {
   final String? message;
 

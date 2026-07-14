@@ -6,7 +6,7 @@ import '../../../core/utils/app_config.dart';
 import '../providers/listings_provider.dart';
 import '../widgets/filter_sheet.dart';
 import '../widgets/listing_cards.dart';
-import '../widgets/listing_table.dart' show EmptyListingsState;
+import '../widgets/empty_listings_state.dart';
 import '../widgets/offline_banner.dart';
 
 class ListingsScreen extends ConsumerWidget {
