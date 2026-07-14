@@ -68,9 +68,9 @@ class EbayApiClient {
         queryParameters: {
           'seller': sellerUsername,
           'sort': sort.browseApiValue,
-          // 'limit': limit,
-          // 'offset': offset,
-          // 'fieldgroups': 'EXTENDED',
+          'limit': limit,
+          'offset': offset,
+          'fieldgroups': 'EXTENDED',
         },
       );
 
