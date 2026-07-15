@@ -6,7 +6,13 @@ import '../models/listing.dart';
 /// eBay Browse API client with OAuth Client Credentials.
 /// Docs: https://developer.ebay.com/api-docs/buy/browse/overview.html
 class EbayApiClient {
-  static const _apiUrl = 'https://ebay-back.kaerdos.dev/';
+  /// URL del backend. Por defecto usa el backend "oficial", pero se puede
+  /// sobrescribir al compilar/correr con:
+  ///   flutter run --dart-define=API_URL=https://tu-backend.onrender.com/
+  static const _apiUrl = String.fromEnvironment(
+    'API_URL',
+    defaultValue: 'https://ebay-back.kaerdos.dev/',
+  );
   late final Dio _dio;
 
   EbayApiClient() {
