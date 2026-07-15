@@ -1,6 +1,21 @@
+import 'dart:typed_data';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart'
+    show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:share_plus/share_plus.dart';
+import '../../../core/utils/image_saver.dart';
 import '../../../shared/theme/app_theme.dart';
+
+/// true en Android/iOS (pantalla táctil), false en web o escritorio (mouse).
+/// Lo usamos para NO agregar el "toca fuera para cerrar" en táctil, ya que
+/// ahí compite con el pellizco de zoom y el deslizar entre fotos.
+bool get _isTouchDevice =>
+    !kIsWeb &&
+    (defaultTargetPlatform == TargetPlatform.android ||
+        defaultTargetPlatform == TargetPlatform.iOS);
 
 // ── Thumbnail (used in table cell) ───────────────────────────────────────────
 
@@ -92,37 +107,124 @@ class _FullScreenViewer extends StatefulWidget {
 
 class _FullScreenViewerState extends State<_FullScreenViewer> {
   late final PageController _controller;
+  late final FocusNode _focusNode;
+  late final TransformationController _zoomController;
   late int _current;
+  bool _zoomed = false;
 
   @override
   void initState() {
     super.initState();
     _current = widget.initialIndex;
     _controller = PageController(initialPage: widget.initialIndex);
+    _focusNode = FocusNode();
+    _zoomController = TransformationController();
+    _zoomController.addListener(_onZoomChanged);
+  }
+
+  void _onZoomChanged() {
+    // getMaxScaleOnAxis() da el zoom actual (1.0 = tamaño normal).
+    final zoomed = _zoomController.value.getMaxScaleOnAxis() > 1.01;
+    if (zoomed != _zoomed) {
+      setState(() => _zoomed = zoomed);
+    }
   }
 
   @override
   void dispose() {
     _controller.dispose();
+    _focusNode.dispose();
+    _zoomController.removeListener(_onZoomChanged);
+    _zoomController.dispose();
     super.dispose();
+  }
+
+  void _close() => Navigator.of(context).pop();
+
+  bool _busy = false;
+
+  Future<Uint8List> _downloadBytes(String url) async {
+    final response = await Dio().get<List<int>>(
+      url,
+      options: Options(responseType: ResponseType.bytes),
+    );
+    return Uint8List.fromList(response.data!);
+  }
+
+  void _showMessage(String text) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+  }
+
+  Future<void> _saveCurrentImage() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      final bytes = await _downloadBytes(widget.imageUrls[_current]);
+      final filename = 'ebay_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      await saveImageBytes(bytes, filename);
+      _showMessage('Imagen guardada');
+    } catch (_) {
+      // En Windows/Linux no hay "galería"; sugerimos compartir en su lugar.
+      _showMessage(
+        'No se pudo guardar aquí. Prueba con el botón de compartir.',
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _shareCurrentImage() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      final bytes = await _downloadBytes(widget.imageUrls[_current]);
+      final filename = 'ebay_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [
+            XFile.fromData(bytes, name: filename, mimeType: 'image/jpeg'),
+          ],
+        ),
+      );
+    } catch (_) {
+      _showMessage('No se pudo compartir la imagen.');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: Stack(
-        children: [
-          // ── Image carousel ───────────────────────────────────────────────
-          PageView.builder(
-            controller: _controller,
-            itemCount: widget.imageUrls.length,
-            onPageChanged: (i) => setState(() => _current = i),
-            itemBuilder: (ctx, i) => InteractiveViewer(
-              minScale: 0.8,
-              maxScale: 4.0,
-              child: Center(
-                child: CachedNetworkImage(
+    return KeyboardListener(
+      focusNode: _focusNode,
+      autofocus: true,
+      onKeyEvent: (event) {
+        if (event is KeyDownEvent &&
+            event.logicalKey == LogicalKeyboardKey.escape) {
+          _close();
+        }
+      },
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: Stack(
+          children: [
+            // ── Image carousel ───────────────────────────────────────────────
+            PageView.builder(
+              controller: _controller,
+              itemCount: widget.imageUrls.length,
+              // Mientras haya zoom activo, se desactiva el deslizado entre
+              // fotos: así el arrastre se usa para mover la imagen ampliada
+              // en vez de cambiar a la siguiente/anterior.
+              physics: _zoomed
+                  ? const NeverScrollableScrollPhysics()
+                  : const PageScrollPhysics(),
+              onPageChanged: (i) {
+                _zoomController.value = Matrix4.identity();
+                setState(() => _current = i);
+              },
+              itemBuilder: (ctx, i) {
+                final image = CachedNetworkImage(
                   imageUrl: widget.imageUrls[i],
                   fit: BoxFit.contain,
                   placeholder: (_, __) => const Center(
@@ -136,147 +238,192 @@ class _FullScreenViewerState extends State<_FullScreenViewer> {
                     color: AppTheme.textMuted,
                     size: 48,
                   ),
-                ),
-              ),
-            ),
-          ),
+                );
 
-          // ── Top bar ──────────────────────────────────────────────────────
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    GestureDetector(
-                      onTap: () => Navigator.of(context).pop(),
-                      child: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.5),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.close,
-                          color: Colors.white,
-                          size: 20,
-                        ),
+                if (_isTouchDevice) {
+                  // Móvil: sin detector de "toque fuera" — así el pellizco
+                  // para zoom y el deslizar entre fotos quedan intactos,
+                  // igual que en la versión original. Para cerrar: botón ✕.
+                  return InteractiveViewer(
+                    transformationController: _zoomController,
+                    minScale: 0.8,
+                    maxScale: 4.0,
+                    child: Center(child: image),
+                  );
+                }
+
+                // Web/escritorio (mouse): toca fuera de la imagen = cerrar.
+                return GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: _close,
+                  child: InteractiveViewer(
+                    transformationController: _zoomController,
+                    minScale: 0.8,
+                    maxScale: 4.0,
+                    child: Center(
+                      child: GestureDetector(
+                        onTap: () {}, // absorbe el toque sobre la imagen
+                        child: image,
                       ),
                     ),
-                    if (widget.imageUrls.length > 1)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.5),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          '${_current + 1} / ${widget.imageUrls.length}',
-                          style: const TextStyle(
+                  ),
+                );
+              },
+            ),
+
+            // ── Top bar ──────────────────────────────────────────────────────
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      GestureDetector(
+                        onTap: () => Navigator.of(context).pop(),
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.5),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.close,
                             color: Colors.white,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
+                            size: 20,
                           ),
                         ),
                       ),
-                  ],
+                      Row(
+                        children: [
+                          if (widget.imageUrls.length > 1)
+                            Container(
+                              margin: const EdgeInsets.only(right: 8),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: 0.5),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                '${_current + 1} / ${widget.imageUrls.length}',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          _TopBarIconButton(
+                            icon: Icons.download_rounded,
+                            busy: _busy,
+                            onTap: _saveCurrentImage,
+                          ),
+                          const SizedBox(width: 8),
+                          _TopBarIconButton(
+                            icon: Icons.share_rounded,
+                            busy: _busy,
+                            onTap: _shareCurrentImage,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-          // ── Desktop arrow navigation ────────────────────────────────────
-          if (widget.imageUrls.length > 1) ...[
-            if (_current > 0)
+            // ── Desktop arrow navigation ────────────────────────────────────
+            if (widget.imageUrls.length > 1) ...[
+              if (_current > 0)
+                Positioned(
+                  left: 12,
+                  top: 0,
+                  bottom: 0,
+                  child: Center(
+                    child: _NavArrow(
+                      icon: Icons.chevron_left_rounded,
+                      onTap: () => _controller.previousPage(
+                        duration: const Duration(milliseconds: 250),
+                        curve: Curves.easeOut,
+                      ),
+                    ),
+                  ),
+                ),
+              if (_current < widget.imageUrls.length - 1)
+                Positioned(
+                  right: 12,
+                  top: 0,
+                  bottom: 0,
+                  child: Center(
+                    child: _NavArrow(
+                      icon: Icons.chevron_right_rounded,
+                      onTap: () => _controller.nextPage(
+                        duration: const Duration(milliseconds: 250),
+                        curve: Curves.easeOut,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+            // ── Dot indicators ───────────────────────────────────────────────
+            if (widget.imageUrls.length > 1)
               Positioned(
-                left: 12,
-                top: 0,
-                bottom: 0,
-                child: Center(
-                  child: _NavArrow(
-                    icon: Icons.chevron_left_rounded,
-                    onTap: () => _controller.previousPage(
-                      duration: const Duration(milliseconds: 250),
-                      curve: Curves.easeOut,
+                bottom: 32,
+                left: 0,
+                right: 0,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(
+                    widget.imageUrls.length,
+                    (i) => GestureDetector(
+                      onTap: () => _controller.animateToPage(
+                        i,
+                        duration: const Duration(milliseconds: 250),
+                        curve: Curves.easeOut,
+                      ),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        margin: const EdgeInsets.symmetric(horizontal: 3),
+                        width: i == _current ? 16 : 6,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          color: i == _current
+                              ? AppTheme.accent
+                              : Colors.white.withValues(alpha: 0.4),
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                      ),
                     ),
                   ),
                 ),
               ),
-            if (_current < widget.imageUrls.length - 1)
+
+            // ── Swipe hint (only first time) ──────────────────────────────────
+            if (widget.imageUrls.length > 1 && _current == 0)
               Positioned(
-                right: 12,
-                top: 0,
-                bottom: 0,
+                bottom: 60,
+                left: 0,
+                right: 0,
                 child: Center(
-                  child: _NavArrow(
-                    icon: Icons.chevron_right_rounded,
-                    onTap: () => _controller.nextPage(
-                      duration: const Duration(milliseconds: 250),
-                      curve: Curves.easeOut,
+                  child: Text(
+                    'Swipe to see more',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.5),
+                      fontSize: 12,
                     ),
                   ),
                 ),
               ),
           ],
-          // ── Dot indicators ───────────────────────────────────────────────
-          if (widget.imageUrls.length > 1)
-            Positioned(
-              bottom: 32,
-              left: 0,
-              right: 0,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(
-                  widget.imageUrls.length,
-                  (i) => GestureDetector(
-                    onTap: () => _controller.animateToPage(
-                      i,
-                      duration: const Duration(milliseconds: 250),
-                      curve: Curves.easeOut,
-                    ),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      margin: const EdgeInsets.symmetric(horizontal: 3),
-                      width: i == _current ? 16 : 6,
-                      height: 6,
-                      decoration: BoxDecoration(
-                        color: i == _current
-                            ? AppTheme.accent
-                            : Colors.white.withValues(alpha: 0.4),
-                        borderRadius: BorderRadius.circular(3),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-
-          // ── Swipe hint (only first time) ──────────────────────────────────
-          if (widget.imageUrls.length > 1 && _current == 0)
-            Positioned(
-              bottom: 60,
-              left: 0,
-              right: 0,
-              child: Center(
-                child: Text(
-                  'Swipe to see more',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.5),
-                    fontSize: 12,
-                  ),
-                ),
-              ),
-            ),
-        ],
+        ),
       ),
     );
   }
@@ -300,6 +447,42 @@ class _Placeholder extends StatelessWidget {
         Icons.image_outlined,
         color: AppTheme.textMuted,
         size: 20,
+      ),
+    );
+  }
+}
+
+class _TopBarIconButton extends StatelessWidget {
+  final IconData icon;
+  final bool busy;
+  final VoidCallback onTap;
+
+  const _TopBarIconButton({
+    required this.icon,
+    required this.busy,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: busy ? null : onTap,
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.5),
+          shape: BoxShape.circle,
+        ),
+        child: busy
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 2,
+                ),
+              )
+            : Icon(icon, color: Colors.white, size: 20),
       ),
     );
   }

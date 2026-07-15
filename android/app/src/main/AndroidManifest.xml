@@ -1,5 +1,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Necesario solo en Android 10 y anteriores (API<=29) para guardar
+         imágenes en la galería con el paquete `gal`. En Android 11+ no hace
+         falta: se usa el sistema de almacenamiento nuevo (scoped storage). -->
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="29" />
     <application
         android:label="ebay_seller_app"
         android:name="${applicationName}"

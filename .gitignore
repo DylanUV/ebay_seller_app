@@ -46,3 +46,5 @@ app.*.map.json
 -e 
 # Environment variables (never commit this)
 .env
+# Wrangler caché archives
+.wrangler/
