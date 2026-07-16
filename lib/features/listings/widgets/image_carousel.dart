@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart'
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
+import '../../../core/utils/image_proxy.dart';
 import '../../../core/utils/image_saver.dart';
 import '../../../shared/theme/app_theme.dart';
 
@@ -38,7 +39,7 @@ class ListingImageThumb extends StatelessWidget {
           ClipRRect(
             borderRadius: BorderRadius.circular(6),
             child: CachedNetworkImage(
-              imageUrl: imageUrls.first,
+              imageUrl: ImageProxy.proxied(imageUrls.first),
               fit: BoxFit.cover,
               width: double.infinity,
               height: double.infinity,
@@ -145,7 +146,7 @@ class _FullScreenViewerState extends State<_FullScreenViewer> {
 
   Future<Uint8List> _downloadBytes(String url) async {
     final response = await Dio().get<List<int>>(
-      url,
+      ImageProxy.proxied(url),
       options: Options(responseType: ResponseType.bytes),
     );
     return Uint8List.fromList(response.data!);
@@ -225,7 +226,7 @@ class _FullScreenViewerState extends State<_FullScreenViewer> {
               },
               itemBuilder: (ctx, i) {
                 final image = CachedNetworkImage(
-                  imageUrl: widget.imageUrls[i],
+                  imageUrl: ImageProxy.proxied(widget.imageUrls[i]),
                   fit: BoxFit.contain,
                   placeholder: (_, __) => const Center(
                     child: CircularProgressIndicator(
