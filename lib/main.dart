@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/cache/cache_service.dart';
 import 'features/listings/screens/listings_screen.dart';
 import 'shared/theme/app_theme.dart';
+import 'package:hive_ce_flutter/hive_flutter.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -28,6 +29,9 @@ Future<void> main() async {
       systemNavigationBarIconBrightness: Brightness.light,
     ),
   );
+
+  // Initialize Hive
+  await Hive.initFlutter();
 
   // Initialize local cache
   await CacheService.init();
