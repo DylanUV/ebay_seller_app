@@ -16,7 +16,6 @@ class ListingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(listingsProvider);
     final sort = ref.watch(sortProvider);
-    final heatFilter = ref.watch(heatFilterProvider);
 
     return Scaffold(
       backgroundColor: AppTheme.background,
@@ -178,7 +177,6 @@ class ListingsScreen extends ConsumerWidget {
     List<EbayListing> listings,
     WidgetRef ref,
   ) {
-    // 👈 ACÁ, reemplazando el método viejo
     final filter = ref.watch(heatFilterProvider);
     if (filter == HeatFilter.all) return listings;
 

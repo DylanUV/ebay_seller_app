@@ -1,4 +1,3 @@
-import 'dart:typed_data';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart'
@@ -10,9 +9,9 @@ import '../../../core/utils/image_proxy.dart';
 import '../../../core/utils/image_saver.dart';
 import '../../../shared/theme/app_theme.dart';
 
-/// true en Android/iOS (pantalla táctil), false en web o escritorio (mouse).
-/// Lo usamos para NO agregar el "toca fuera para cerrar" en táctil, ya que
-/// ahí compite con el pellizco de zoom y el deslizar entre fotos.
+/// true on Android/iOS (touchscreen), false on web or desktop (mouse).
+/// We use this to skip the "tap outside to close" gesture on touch, since
+/// it would conflict with pinch-to-zoom and swiping between photos.
 bool get _isTouchDevice =>
     !kIsWeb &&
     (defaultTargetPlatform == TargetPlatform.android ||
@@ -43,7 +42,7 @@ class ListingImageThumb extends StatelessWidget {
               fit: BoxFit.cover,
               width: double.infinity,
               height: double.infinity,
-              memCacheWidth: 400, // suficiente para tarjetas grandes
+              memCacheWidth: 400, // enough resolution for large cards
               placeholder: (_, __) => const _Placeholder(),
               errorWidget: (_, __, ___) => const _Placeholder(),
             ),
@@ -124,7 +123,7 @@ class _FullScreenViewerState extends State<_FullScreenViewer> {
   }
 
   void _onZoomChanged() {
-    // getMaxScaleOnAxis() da el zoom actual (1.0 = tamaño normal).
+    // getMaxScaleOnAxis() returns the current zoom level (1.0 = normal size).
     final zoomed = _zoomController.value.getMaxScaleOnAxis() > 1.01;
     if (zoomed != _zoomed) {
       setState(() => _zoomed = zoomed);
@@ -164,12 +163,10 @@ class _FullScreenViewerState extends State<_FullScreenViewer> {
       final bytes = await _downloadBytes(widget.imageUrls[_current]);
       final filename = 'ebay_${DateTime.now().millisecondsSinceEpoch}.jpg';
       await saveImageBytes(bytes, filename);
-      _showMessage('Imagen guardada');
+      _showMessage('Image saved');
     } catch (_) {
-      // En Windows/Linux no hay "galería"; sugerimos compartir en su lugar.
-      _showMessage(
-        'No se pudo guardar aquí. Prueba con el botón de compartir.',
-      );
+      // Windows/Linux has no "gallery" concept; suggest sharing instead.
+      _showMessage('Could not save here. Try the share button instead.');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -189,7 +186,7 @@ class _FullScreenViewerState extends State<_FullScreenViewer> {
         ),
       );
     } catch (_) {
-      _showMessage('No se pudo compartir la imagen.');
+      _showMessage('Could not share the image.');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -214,9 +211,9 @@ class _FullScreenViewerState extends State<_FullScreenViewer> {
             PageView.builder(
               controller: _controller,
               itemCount: widget.imageUrls.length,
-              // Mientras haya zoom activo, se desactiva el deslizado entre
-              // fotos: así el arrastre se usa para mover la imagen ampliada
-              // en vez de cambiar a la siguiente/anterior.
+              // While zoomed in, swiping between photos is disabled: this
+              // way dragging moves the zoomed image around instead of
+              // switching to the next/previous photo.
               physics: _zoomed
                   ? const NeverScrollableScrollPhysics()
                   : const PageScrollPhysics(),
@@ -242,9 +239,9 @@ class _FullScreenViewerState extends State<_FullScreenViewer> {
                 );
 
                 if (_isTouchDevice) {
-                  // Móvil: sin detector de "toque fuera" — así el pellizco
-                  // para zoom y el deslizar entre fotos quedan intactos,
-                  // igual que en la versión original. Para cerrar: botón ✕.
+                  // Mobile: no "tap outside" detector — this way pinch-to-
+                  // zoom and swiping between photos stay intact, same as
+                  // the original version. To close: the ✕ button.
                   return InteractiveViewer(
                     transformationController: _zoomController,
                     minScale: 0.8,

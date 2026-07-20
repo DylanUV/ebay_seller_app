@@ -1,21 +1,21 @@
-/// Convierte una URL de imagen de eBay (ej. https://i.ebayimg.com/...)
-/// en una URL que apunta a nuestro propio backend, el cual descarga la
-/// imagen del lado del servidor y la reenvía.
+/// Converts an eBay image URL (e.g. https://i.ebayimg.com/...) into a URL
+/// that points to our own backend, which fetches the image server-side and
+/// forwards it.
 ///
-/// Esto evita inconsistencias al pedir la imagen directo a eBay desde el
-/// navegador (bloqueos de terceros, modo incógnito, extensiones, etc.),
-/// porque ahora la imagen "viene" del mismo dominio que el resto de la app.
+/// This avoids inconsistencies when requesting the image directly from eBay
+/// in the browser (third-party blocking, incognito mode, extensions, etc.),
+/// because now the image "comes from" the same domain as the rest of the app.
 ///
-/// Usa la misma URL base configurable que [EbayApiClient]:
-///   flutter run --dart-define=API_URL=https://tu-backend.onrender.com/
+/// Uses the same configurable base URL as [EbayApiClient]:
+///   flutter run --dart-define=API_URL=https://your-backend.onrender.com/
 class ImageProxy {
   static const _apiUrl = String.fromEnvironment(
     'API_URL',
     defaultValue: 'https://ebay-back.kaerdos.dev/',
   );
 
-  /// Si [originalUrl] es nula/vacía la devuelve tal cual (para no romper
-  /// los placeholders/errorWidget de CachedNetworkImage).
+  /// If [originalUrl] is null/empty, returns it as-is (so we don't break
+  /// CachedNetworkImage's placeholders/errorWidget).
   static String proxied(String originalUrl) {
     if (originalUrl.isEmpty) return originalUrl;
     final encoded = Uri.encodeQueryComponent(originalUrl);

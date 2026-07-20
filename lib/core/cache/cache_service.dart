@@ -1,4 +1,4 @@
-import 'package:hive_ce_flutter/hive_flutter.dart';
+import 'package:hive_ce_flutter/hive_ce_flutter.dart';
 import '../models/listing.dart';
 
 /// Manages local persistence of listings with TTL-based invalidation.
@@ -13,7 +13,7 @@ class CacheService {
   static CacheService get instance {
     assert(
       _instance != null,
-      'CacheService.init() debe llamarse antes de usar instance',
+      'CacheService.init() must be called before using instance',
     );
     return _instance!;
   }
@@ -26,6 +26,7 @@ class CacheService {
   static Future<CacheService> init() async {
     if (_instance != null) return _instance!;
 
+    await Hive.initFlutter();
     Hive.registerAdapter(EbayListingAdapter());
 
     final service = CacheService._();

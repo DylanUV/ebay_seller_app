@@ -17,6 +17,8 @@ dependencies:
   flutter_riverpod: ^3.3.2
 
   # Local Cache / Persistence
+  # NOTE: using hive_ce (Community Edition), the actively maintained fork of
+  # the original `hive` package, which has been unmaintained since 2022.
   hive_ce: ^2.19.3
   hive_ce_flutter: ^2.3.4
 
@@ -33,11 +35,13 @@ dependencies:
   # Env variables
   flutter_dotenv: ^5.2.1
 
+  # Web interop (replaces the deprecated dart:html on web builds)
+  web: ^1.1.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
-
-  build_runner: ^2.7.1
+  flutter_lints: ^5.0.0
 
 flutter:
   uses-material-design: true

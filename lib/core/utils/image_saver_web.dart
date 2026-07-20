@@ -1,13 +1,17 @@
+import 'dart:js_interop';
 import 'dart:typed_data';
-import 'dart:html' as html;
+import 'package:web/web.dart' as web;
 
-/// En web no existe "galería": lo que hacemos es que el navegador
-/// descargue el archivo, como al hacer clic derecho -> "Guardar imagen como".
+/// On web there's no "gallery": instead, we make the browser download the
+/// file, the same as right-clicking an image -> "Save image as".
 Future<void> saveImageBytes(Uint8List bytes, String filename) async {
-  final blob = html.Blob([bytes]);
-  final url = html.Url.createObjectUrlFromBlob(blob);
-  html.AnchorElement(href: url)
-    ..setAttribute('download', filename)
-    ..click();
-  html.Url.revokeObjectUrl(url);
+  final blob = web.Blob([bytes.toJS].toJS);
+  final url = web.URL.createObjectURL(blob);
+
+  final anchor = web.document.createElement('a') as web.HTMLAnchorElement
+    ..href = url
+    ..download = filename;
+  anchor.click();
+
+  web.URL.revokeObjectURL(url);
 }

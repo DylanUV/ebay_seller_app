@@ -143,18 +143,21 @@ class EbayApiClient {
   }
 }
 
-/// TEMP DEBUG: imprime un JSON completo pero troceado en líneas de máximo
-/// ~800 caracteres, porque logcat de Android corta las líneas largas
-/// (como pasó con el bloque que llegaba hasta "shippingOpti" y se cortaba).
+/// TEMP DEBUG: prints a full JSON payload chunked into ~800-character
+/// lines, since Android's logcat truncates long lines (this happened
+/// before with a block that got cut off mid-way through "shippingOpti").
+/// Uses `debugPrint` instead of `print` (required by the `avoid_print`
+/// lint) — it's also a no-op in release builds, so this stays safe to
+/// leave in even outside the `kDebugMode` guard at the call site.
 void _printJsonSafely(Map<String, dynamic> json) {
   const chunkSize = 800;
   final text = const JsonEncoder.withIndent('  ').convert(json);
-  print('🔍 RAW ITEM DE EBAY (${text.length} caracteres):');
+  debugPrint('🔍 RAW EBAY ITEM (${text.length} characters):');
   for (var i = 0; i < text.length; i += chunkSize) {
     final end = (i + chunkSize < text.length) ? i + chunkSize : text.length;
-    print(text.substring(i, end));
+    debugPrint(text.substring(i, end));
   }
-  print('🔍 FIN DEL ITEM');
+  debugPrint('🔍 END OF ITEM');
 }
 
 // ── Supporting types ──────────────────────────────────────────────────────────

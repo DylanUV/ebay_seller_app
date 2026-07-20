@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../../core/models/listing.dart';
@@ -7,9 +6,9 @@ import '../../../shared/theme/app_theme.dart';
 import 'countdown_widget.dart';
 import 'image_carousel.dart';
 
-/// Lista de tarjetas — reemplaza el layout de tabla.
-/// Cada tarjeta muestra: imagen grande, título, precio destacado,
-/// tiempo restante y acciones (abrir / compartir).
+/// Card list — replaces the old table layout.
+/// Each card shows: large image, title, highlighted price,
+/// time remaining and actions (open / share).
 class ListingsCards extends StatelessWidget {
   final List<EbayListing> listings;
 
@@ -52,13 +51,13 @@ class _ListingCard extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // ── Imagen: llena todo el alto de la tarjeta ────────────────
+              // ── Image: fills the entire height of the card ─────────────
               SizedBox(
                 width: 100,
                 child: ListingImageThumb(imageUrls: listing.imageUrls),
               ),
 
-              // ── Contenido ────────────────────────────────────────────────
+              // ── Content ─────────────────────────────────────────────────
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.all(10),
@@ -66,7 +65,7 @@ class _ListingCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      // Título
+                      // Title
                       Text(
                         listing.title,
                         maxLines: 2,
@@ -80,7 +79,7 @@ class _ListingCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 6),
 
-                      // Precio + envío + tiempo restante en una fila
+                      // Price + shipping + time remaining in one row
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
@@ -117,7 +116,7 @@ class _ListingCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
 
-                      // Bids (si aplica)
+                      // Bids (if any)
                       if (listing.bidCount != null && listing.bidCount! > 0)
                         Text(
                           '${listing.bidCount} bid${listing.bidCount == 1 ? '' : 's'}',
@@ -130,7 +129,7 @@ class _ListingCard extends StatelessWidget {
 
                       const SizedBox(height: 8),
 
-                      // Acciones
+                      // Actions
                       Row(
                         children: [
                           _ActionChip(
@@ -155,7 +154,7 @@ class _ListingCard extends StatelessWidget {
             ],
           ),
 
-          // ── Badge de fuego (subasta caliente) ─────────────────────────
+          // ── Heat badge (hot auction) ──────────────────────────────────
           if (isHot)
             Positioned(bottom: 6, right: 6, child: _StatusBadge(emoji: '🔥')),
           if (isWarm)
@@ -189,7 +188,7 @@ class _ListingCard extends StatelessWidget {
   }
 }
 
-// ── Badge de estado (fuego / frío) ──────────────────────────────────────────
+// ── Status badge (hot / cold) ────────────────────────────────────────────
 
 class _StatusBadge extends StatelessWidget {
   final String emoji;
@@ -209,7 +208,7 @@ class _StatusBadge extends StatelessWidget {
   }
 }
 
-// ── Chip de acción reutilizable ─────────────────────────────────────────────
+// ── Reusable action chip ─────────────────────────────────────────────────
 
 class _ActionChip extends StatelessWidget {
   final IconData icon;
